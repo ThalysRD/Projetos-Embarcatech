@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resultados do ThingSpeak</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Resultados do ThingSpeak</h1>
+
+    <label for="sortOrder">Ordenar por:</label>
+    <select id="sortOrder">
+      <option value="id">ID</option>
+      <option value="data">Data</option>
+      <option value="aproveitamento">Aproveitamento</option>
+    </select>
+    <button onclick="fetchData()">Atualizar</button>
+
+    <table id="resultsTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Acertos</th>
+          <th>Tentativas</th>
+          <th>Aproveitamento (%)</th>
+          <th>Data</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Os dados serão inseridos aqui -->
+      </tbody>
+    </table>
+
+    <script>
+      // URL da API do ThingSpeak
+      const apiUrl =
+        "https://api.thingspeak.com/channels/2838558/feeds.json?api_key=Z32BYDP659UZBM79&results=2";
+
+      // Função para formatar a data
+      function formatDate(dateString) {
+        const options = {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        };
+        const date = new Date(dateString);
+        return date.toLocaleString("pt-BR", options);
+      }
+
+      // Função para calcular o aproveitamento
+      function calcularAproveitamento(acertos, tentativas) {
+        if (tentativas === 0) return 0; // Evita divisão por zero
+        return ((acertos / tentativas) * 100).toFixed(2); // Retorna o aproveitamento em porcentagem
+      }
+
+      // Função para buscar e exibir os dados
+      async function fetchData() {
+        try {
+          const response = await fetch(apiUrl);
+          const data = await response.json();
+
+          // Seleciona o corpo da tabela
+          const tableBody = document
+            .getElementById("resultsTable")
+            .getElementsByTagName("tbody")[0];
+
+          // Limpa a tabela antes de adicionar novos dados
+          tableBody.innerHTML = "";
+
+          // Ordena os dados com base na seleção do usuário
+          const sortOrder = document.getElementById("sortOrder").value;
+          let sortedFeeds = data.feeds;
+
+          if (sortOrder === "id") {
+            sortedFeeds.sort((a, b) => a.entry_id - b.entry_id);
+          } else if (sortOrder === "data") {
+            sortedFeeds.sort(
+              (a, b) => new Date(a.created_at) - new Date(b.created_at)
+            );
+          } else if (sortOrder === "aproveitamento") {
+            sortedFeeds.sort((a, b) => {
+              const aproveitamentoA = calcularAproveitamento(
+                a.field1,
+                a.field2
+              );
+              const aproveitamentoB = calcularAproveitamento(
+                b.field1,
+                b.field2
+              );
+              return aproveitamentoB - aproveitamentoA; // Maior aproveitamento primeiro
+            });
+          }
+
+          // Itera sobre os feeds e adiciona as linhas à tabela
+          sortedFeeds.forEach((feed) => {
+            const row = tableBody.insertRow();
+            row.insertCell(0).innerText = feed.entry_id; // ID
+            row.insertCell(1).innerText = feed.field1; // Acertos
+            row.insertCell(2).innerText = feed.field2; // Tentativas
+            row.insertCell(3).innerText =
+              calcularAproveitamento(feed.field1, feed.field2) + "%"; // Aproveitamento
+            row.insertCell(4).innerText = formatDate(feed.created_at); // Data formatada
+          });
+        } catch (error) {
+          console.error("Erro ao buscar os dados:", error);
+        }
+      }
+
+      // Chama a função para buscar os dados ao carregar a página
+      window.onload = fetchData;
+    </script>
+  </body>
+</html>
